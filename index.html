@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teachable Machine Model Evaluator</title>
+    
+    <!-- p5.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    
+    <!-- ml5.js Library -->
+    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+    
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #e8f0fe;
+        }
+        canvas {
+            display: block;
+        }
+        
+        .model-input {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            height: 35px;
+            width: 267px;
+            border: none;
+            border-radius: 4px 4px 0px 0px;
+            border-bottom: 2px solid #1967d2;
+            font-family: 'Poppins', sans-serif;
+            font-size: 16px;
+            padding-left: 5px;
+            color: #669df6;
+            background-color: white;
+            z-index: 10;
+        }
+        
+        .model-input::placeholder {
+            color: #aaa;
+        }
+        
+        .load-button {
+            position: absolute;
+            top: 20px;
+            left: 300px;
+            height: 40px;
+            width: 150px;
+            border: none;
+            background-color: #e8f0fe;
+            font-family: 'Poppins', sans-serif;
+            font-size: 18px;
+            color: #1967d2;
+            cursor: pointer;
+            border-radius: 4px;
+            z-index: 10;
+        }
+        
+        .load-button:hover {
+            background-color: #d0e4fc;
+        }
+        
+        .navigation-buttons {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            z-index: 10;
+            gap: 15px;
+        }
+        
+        .nav-button {
+            height: 50px;
+            width: 140px;
+            border: none;
+            background-color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            font-weight: bold;
+            color: #1967d2;
+            cursor: pointer;
+            border-radius: 9px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .nav-button:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .nav-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .reload-button:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .reload-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        main {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <input type="text" id="modelInput" class="model-input" placeholder="Paste model link here">
+        <button id="loadModelBtn" class="load-button">LOAD MODEL</button>
+        <div id="navigationButtons" class="navigation-buttons">
+            <button id="backBtn" class="nav-button">← PREVIOUS</button>
+            <button id="nextBtn" class="nav-button">NEXT →</button>
+        </div>
+    </main>
+    
+    <!-- p5.js Sketch -->
+    <script src="sketch.js"></script>
+</body>
+</html>
