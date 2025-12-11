@@ -102,68 +102,184 @@ function setup() {
 }
 
 function setupUI() {
-    const modelInput = document.getElementById('modelInput');
-    const loadBtn = document.getElementById('loadModelBtn');
+    const fileInput = document.getElementById('modelFiles');
+    const uploadLabel = document.querySelector('.upload-label');
     const navigationButtons = document.getElementById('navigationButtons');
     const backBtn = document.getElementById('backBtn');
     const nextBtn = document.getElementById('nextBtn');
     
-    loadBtn.addEventListener('click', () => {
-        const enteredURL = modelInput.value.trim();
-        if (enteredURL) {
-            modelURL = enteredURL;
-            loadBtn.textContent = 'LOADING...';
-            loadBtn.disabled = true;
+    fileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.endsWith('.zip')) {
+            alert('Please upload a .zip file containing your Teachable Machine model');
+            return;
+        }
+        
+        uploadLabel.textContent = 'LOADING...';
+        uploadLabel.style.pointerEvents = 'none';
+        
+        // Reset indices
+        currentCatIndex = 0;
+        currentDogIndex = 0;
+        
+        try {
+            // Read the zip file
+            const arrayBuffer = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(arrayBuffer);
             
-            // Format URL
-            let formattedURL = modelURL.trim();
-            if (formattedURL.endsWith('model.json')) {
-                formattedURL = formattedURL.replace(/model\.json$/, '');
-            }
-            if (!formattedURL.endsWith('/')) {
-                formattedURL += '/';
+            console.log('Zip file loaded. Contents:', Object.keys(zip.files));
+            
+            // Extract model.json and metadata.json
+            let modelJSON = null;
+            let metadata = null;
+            const weightsData = {};
+            
+            for (let filename in zip.files) {
+                const zipFile = zip.files[filename];
+                
+                if (filename.endsWith('model.json')) {
+                    const content = await zipFile.async('text');
+                    modelJSON = JSON.parse(content);
+                    console.log('model.json extracted');
+                } else if (filename.endsWith('metadata.json')) {
+                    const content = await zipFile.async('text');
+                    metadata = JSON.parse(content);
+                    console.log('metadata.json extracted:', metadata);
+                } else if (filename.endsWith('.bin')) {
+                    const content = await zipFile.async('arraybuffer');
+                    const weightFilename = filename.split('/').pop();
+                    weightsData[weightFilename] = content;
+                    console.log('Weight file extracted:', weightFilename);
+                }
             }
             
-            try {
-                console.log('Loading model from:', formattedURL + 'model.json' + '?v=' + new Date().getTime());
-                
-                // Load classifier
-                classifier = ml5.imageClassifier(formattedURL + 'model.json' + '?v=' + new Date().getTime());
-                
-                // Fetch metadata to get labels
-                httpGet(formattedURL + 'metadata.json', 'json', false, (response) => {
-                    console.log('Metadata loaded:', response);
-                    
-                    loadBtn.textContent = 'MODEL LOADED';
-                    setTimeout(() => {
-                        loadBtn.textContent = 'REFRESH MODEL';
-                        loadBtn.disabled = false;
-                    }, 2000);
-                    
-                    modelLoaded = true;
-                    isModelLoaded = true;
-                    
-                    currentCatIndex = 0;
-                    currentDogIndex = 0;
-                    
-                    // Generate test data and load images
-                    generateTestData();
-                    loadImages();
-                    
-                }, (error) => {
-                    console.error('Metadata loading error:', error);
-                    loadBtn.textContent = 'ERROR LOADING';
-                    loadBtn.disabled = false;
-                    alert('Invalid Teachable Machine URL');
-                });
-                
-            } catch (e) {
-                console.error('Error:', e);
-                loadBtn.textContent = 'ERROR';
-                loadBtn.disabled = false;
+            if (!modelJSON || !metadata) {
+                throw new Error('Missing model.json or metadata.json in zip file');
             }
-        } else {
-            alert('Please enter a valid Teachable Machine model URL');
+            
+            // Create IOHandler that serves model from memory
+            const modelHandler = {
+                async load() {
+                    const weightSpecs = [];
+                    const weightDataArray = [];
+                    
+                    if (modelJSON.weightsManifest) {
+                        for (let manifest of modelJSON.weightsManifest) {
+                            weightSpecs.push(...manifest.weights);
+                            for (let path of manifest.paths) {
+                                const filename = path.split('/').pop();
+                                if (weightsData[filename]) {
+                                    weightDataArray.push(weightsData[filename]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Concatenate all weight data
+                    let totalLength = 0;
+                    for (let data of weightDataArray) {
+                        totalLength += data.byteLength;
+                    }
+                    const concatenated = new ArrayBuffer(totalLength);
+                    const view = new Uint8Array(concatenated);
+                    let offset = 0;
+                    for (let data of weightDataArray) {
+                        view.set(new Uint8Array(data), offset);
+                        offset += data.byteLength;
+                    }
+                    
+                    return {
+                        modelTopology: modelJSON.modelTopology,
+                        weightSpecs: weightSpecs,
+                        weightData: concatenated,
+                        format: modelJSON.format,
+                        generatedBy: modelJSON.generatedBy,
+                        convertedBy: modelJSON.convertedBy
+                    };
+                }
+            };
+            
+            // Load with TensorFlow.js
+            const tfModel = await tf.loadLayersModel(modelHandler);
+            console.log('TensorFlow model loaded');
+            
+            // Create classifier wrapper that mimics ml5 API
+            classifier = {
+                model: tfModel,
+                metadata: metadata,
+                classify: async function(input, callback) {
+                    try {
+                        // Convert input to tensor
+                        let imgTensor;
+                        if (input.canvas) {
+                            imgTensor = tf.browser.fromPixels(input.canvas);
+                        } else if (input.elt) {
+                            imgTensor = tf.browser.fromPixels(input.elt);
+                        } else {
+                            imgTensor = tf.browser.fromPixels(input);
+                        }
+                        
+                        // Resize to 224x224
+                        imgTensor = tf.image.resizeBilinear(imgTensor, [224, 224]);
+                        
+                        // Normalize to [-1, 1] (Teachable Machine format)
+                        imgTensor = imgTensor.toFloat().div(127.5).sub(1);
+                        
+                        // Add batch dimension
+                        imgTensor = imgTensor.expandDims(0);
+                        
+                        // Predict
+                        const predictions = tfModel.predict(imgTensor);
+                        const probabilities = await predictions.data();
+                        
+                        // Clean up tensors
+                        imgTensor.dispose();
+                        predictions.dispose();
+                        
+                        // Format results like ml5
+                        const results = [];
+                        const labels = metadata.labels || ['Class 1', 'Class 2'];
+                        for (let i = 0; i < probabilities.length; i++) {
+                            results.push({
+                                label: labels[i],
+                                confidence: probabilities[i]
+                            });
+                        }
+                        
+                        // Sort by confidence
+                        results.sort((a, b) => b.confidence - a.confidence);
+                        
+                        callback(null, results);
+                    } catch (error) {
+                        callback(error, null);
+                    }
+                }
+            };
+            
+            console.log('Classifier wrapper created');
+            
+            uploadLabel.textContent = '✓ MODEL LOADED';
+            setTimeout(() => {
+                uploadLabel.textContent = '📦 UPLOAD MODEL ZIP';
+                uploadLabel.style.pointerEvents = 'auto';
+            }, 2000);
+            
+            modelLoaded = true;
+            isModelLoaded = true;
+            
+            generateTestData();
+            loadImages();
+            
+        } catch (err) {
+            console.error('Error loading zip file:', err);
+            uploadLabel.textContent = '✗ ERROR';
+            setTimeout(() => {
+                uploadLabel.textContent = '📦 UPLOAD MODEL ZIP';
+                uploadLabel.style.pointerEvents = 'auto';
+            }, 2000);
+            alert('Error loading model from zip: ' + err.message);
         }
     });
     

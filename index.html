@@ -8,8 +8,11 @@
     <!-- p5.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
     
-    <!-- ml5.js Library -->
-    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+    <!-- TensorFlow.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    
+    <!-- JSZip Library for handling zip files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <!-- Google Fonts - Poppins -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,45 +33,32 @@
             display: block;
         }
         
-        .model-input {
+        .upload-section {
             position: absolute;
             top: 20px;
             left: 20px;
-            height: 35px;
-            width: 267px;
-            border: none;
-            border-radius: 4px 4px 0px 0px;
-            border-bottom: 2px solid #1967d2;
-            font-family: 'Poppins', sans-serif;
-            font-size: 16px;
-            padding-left: 5px;
-            color: #669df6;
+            z-index: 10;
+        }
+        
+        .upload-label {
+            display: inline-block;
+            padding: 10px 20px;
             background-color: white;
-            z-index: 10;
-        }
-        
-        .model-input::placeholder {
-            color: #aaa;
-        }
-        
-        .load-button {
-            position: absolute;
-            top: 20px;
-            left: 300px;
-            height: 40px;
-            width: 150px;
-            border: none;
-            background-color: #e8f0fe;
-            font-family: 'Poppins', sans-serif;
-            font-size: 18px;
             color: #1967d2;
-            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: bold;
             border-radius: 4px;
-            z-index: 10;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
-        .load-button:hover {
-            background-color: #d0e4fc;
+        .upload-label:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .file-input {
+            display: none;
         }
         
         .navigation-buttons {
@@ -120,8 +110,10 @@
 </head>
 <body>
     <main>
-        <input type="text" id="modelInput" class="model-input" placeholder="Paste model link here">
-        <button id="loadModelBtn" class="load-button">LOAD MODEL</button>
+        <div class="upload-section">
+            <input type="file" id="modelFiles" class="file-input" accept=".zip,application/zip">
+            <label for="modelFiles" class="upload-label">📦 UPLOAD MODEL ZIP</label>
+        </div>
         <div id="navigationButtons" class="navigation-buttons">
             <button id="backBtn" class="nav-button">← PREVIOUS</button>
             <button id="nextBtn" class="nav-button">NEXT →</button>
