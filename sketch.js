@@ -462,7 +462,7 @@ function draw() {
         textSize(16);
         textStyle(NORMAL);
         fill(100);
-        text('Enter your model URL above and click LOAD MODEL to begin', width / 2, HEADER_HEIGHT / 2 + 40);
+        text('Click the button to upload your model ZIP file and begin', width / 2, HEADER_HEIGHT / 2 + 40);
         return;
     }
     
