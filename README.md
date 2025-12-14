@@ -1,4 +1,4 @@
-# Tester για το Google Teachable Machine
+# Experimenting with Teachable Machine
 
 ## Στόχος
 
